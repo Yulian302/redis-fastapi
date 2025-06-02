@@ -50,23 +50,38 @@ class RawRedisClient:
     def _parse_redis_response(self):
         """Parse Redis RESP protocol response"""
         try:
-            response = self._connection.recv(4096).decode().strip()
-            if response.startswith('+'):
-                return response[1:]  # Simple string
-            elif response.startswith('$'):
-                length = int(response[1:].split('\r\n')[0])
+            response = self._read_line()
+            if not response:
+                raise ConnectionError("Empty response from Redis")
+
+            prefix, data = response[0], response[1:]
+
+            if prefix == '+':
+                return data  # simple string
+            elif prefix == '$':
+                length = len(data)
                 if length == -1:
                     return None
-                return response.split('\r\n')[1]
-            elif response.startswith(':'):
-                return int(response[1:])
-            elif response.startswith('*'):
-                items = []
-                parts = response.split('\r\n')
-                count = int(parts[0][1:])
-                for i in range(1, count*2, 2):
-                    items.append(parts[i+1])
-                return items
-            return response
+                return self._read_line()
+            elif prefix == ':':  # Integer
+                return int(data)
+            elif prefix == '*':  # Array
+                count = int(data)
+                return [self._parse_redis_response() for _ in range(count)]
+            else:
+                raise ValueError(f"Unknown RESP prefix: {prefix}")
+
         except (ValueError, IndexError) as e:
             raise ValueError(f"Invalid Redis response: {str(e)}")
+
+    def _read_line(self):
+        buffer = []
+        while True:
+            char = self._connection.recv(1).decode()
+            if char == "\r":
+                next_char = self._connection.recv(1).decode()
+                if next_char == "\n":
+                    return "".join(buffer)
+                buffer.append(char+next_char)
+            else:
+                buffer.append(char)
