@@ -1,15 +1,14 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from dotenv import load_dotenv
 from os import getenv
 
-from pydantic import BaseModel
-from redisClient import RawRedisClient
+from routers.store import store
 
 
 load_dotenv('.env')
 
 app = FastAPI()
-redis_client = RawRedisClient()
+app.include_router(store)
 
 
 @app.get("/health")
@@ -18,26 +17,6 @@ async def check_health():
         'health': 'ok'
     }
 
-
-class KeyValueModel(BaseModel):
-    key: str
-    value: int
-
-
-@app.post("/set")
-async def set_key(item: KeyValueModel):
-    redis_client._send_redis_command("SET", item.key, item.value)
-    return {
-        "status": "success"
-    }
-
-
-@app.get("/get")
-async def get_value(key: str = Query(...)):
-    value = redis_client._send_redis_command('GET', key)
-    return {
-        "value": value
-    }
 
 if __name__ == "__main__":
     import uvicorn
