@@ -49,6 +49,3 @@ async def create_user():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app=app, host="127.0.0.1", port=getenv("PORT"))
-
-# line 1
-# line 2
