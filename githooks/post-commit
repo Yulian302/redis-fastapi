@@ -1,0 +1,28 @@
+
+#!/usr/bin/env python3
+
+import os
+from subprocess import check_output
+from dotenv import load_dotenv
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+
+
+load_dotenv('.env')
+
+log = check_output(['git', 'log', '-1', '--stat', 'HEAD'])
+sender = os.getenv('EMAIL')
+receiver = os.getenv('HOST_EMAIL')
+msg = MIMEText("The following commit was made in your repository:\n\n%s" % log)
+msg['Subject'] = "NEW Git Commit"
+msg['From'] = sender
+msg['To'] = receiver
+
+smtp_server = 'smtp.gmail.com'
+smtp_port = 465
+context = ssl.create_default_context()
+
+with smtplib.SMTP(smtp_server, smtp_port, context=context) as session:
+    session.login(sender, os.getenv('PASSWORD'))
+    session.sendmail(sender, receiver, msg)
